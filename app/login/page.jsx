@@ -198,7 +198,7 @@ export default function LoginPage() {
           </p>
 
           {/* Demo accounts */}
-          <div className="mt-6 p-4 rounded-2xl" style={{ background: '#f8faff', border: '1px solid #e0e7ff' }}>
+          {/* <div className="mt-6 p-4 rounded-2xl" style={{ background: '#f8faff', border: '1px solid #e0e7ff' }}>
             <p className="text-xs font-bold mb-2" style={{ color: '#4f46e5' }}>🔑 Demo hisoblar:</p>
             <div className="space-y-1">
               {[
@@ -216,7 +216,7 @@ export default function LoginPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
