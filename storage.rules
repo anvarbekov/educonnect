@@ -1,0 +1,45 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function fileSizeOk() {
+      return request.resource.size <= 10 * 1024 * 1024; // 10MB
+    }
+
+    function isAllowedType() {
+      return request.resource.contentType.matches('image/.*')
+        || request.resource.contentType.matches('audio/.*')
+        || request.resource.contentType == 'application/pdf'
+        || request.resource.contentType == 'application/msword'
+        || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        || request.resource.contentType == 'application/vnd.ms-excel'
+        || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        || request.resource.contentType == 'text/plain';
+    }
+
+    // Chat files
+    match /files/{channelId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isAuth() && fileSizeOk() && isAllowedType();
+      allow delete: if isAuth();
+    }
+
+    // Voice messages
+    match /voice/{channelId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isAuth() && fileSizeOk() && request.resource.contentType.matches('audio/.*');
+      allow delete: if isAuth();
+    }
+
+    // Avatars
+    match /avatars/{userId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId && fileSizeOk()
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

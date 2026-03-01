@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function getUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuth() && getUser().role == role;
+    }
+
+    function isAdminOrTeacher() {
+      return isAuth() && (getUser().role == 'admin' || getUser().role == 'teacher');
+    }
+
+    function isAdmin() {
+      return isAuth() && getUser().role == 'admin';
+    }
+
+    function isMember(channelId) {
+      return isAuth() && exists(/databases/$(database)/documents/memberships/$(request.auth.uid + '_' + channelId));
+    }
+
+    // ── Users ──────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Courses ────────────────────────────────────────────────────
+    match /courses/{courseId} {
+      allow read: if isAuth();
+      allow create: if isAdminOrTeacher();
+      allow update: if isAdmin()
+        || (hasRole('teacher') && resource.data.teacherId == request.auth.uid);
+      allow delete: if isAdmin()
+        || (hasRole('teacher') && resource.data.teacherId == request.auth.uid);
+    }
+
+    // ── Channels ───────────────────────────────────────────────────
+    match /channels/{channelId} {
+      allow read: if isAuth();
+      allow create: if isAdminOrTeacher();
+      allow update: if isAdminOrTeacher();
+      allow delete: if isAdmin();
+    }
+
+    // ── Memberships ────────────────────────────────────────────────
+    match /memberships/{membershipId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (
+        request.resource.data.userId == request.auth.uid
+        || isAdminOrTeacher()
+      );
+      allow update: if isAdminOrTeacher();
+      allow delete: if isAdminOrTeacher()
+        || (isAuth() && resource.data.userId == request.auth.uid);
+    }
+
+    // ── Messages ───────────────────────────────────────────────────
+    match /messages/{messageId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.senderId == request.auth.uid
+        && !getUser().isMuted;
+      allow update: if isAuth() && (
+        resource.data.senderId == request.auth.uid
+        || isAdminOrTeacher()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── Read Receipts ──────────────────────────────────────────────
+    match /readReceipts/{receiptId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Audit Logs ─────────────────────────────────────────────────
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Presence ──────────────────────────────────────────────────
+    match /presence/{userId} {
+      allow read: if isAuth();
+      allow write: if isOwner(userId);
+    }
+
+    // ── SUS Responses ─────────────────────────────────────────────
+    match /susResponses/{responseId} {
+      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.userId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}
